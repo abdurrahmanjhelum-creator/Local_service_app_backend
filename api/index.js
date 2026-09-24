@@ -12,6 +12,7 @@ const bookingRoutes = require('../src/routes/bookingRoutes');
 const categoryRoutes = require('../src/routes/categoryRoutes');
 const reviewRoutes = require('../src/routes/reviewRoutes');
 const notificationRoutes = require('../src/routes/notificationRoutes');
+const chatRoutes = require('../src/routes/chatRoutes');
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
