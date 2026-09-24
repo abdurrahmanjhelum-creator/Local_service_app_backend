@@ -1,5 +1,6 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const firebaseAdmin = require('../config/firebaseAdmin');
 
 /**
  * Send Notification Helper
@@ -28,14 +29,32 @@ const sendNotification = async ({ app, userId, title, body, type = 'general', da
             }
         }
 
-        // 3. Optional FCM push notification
+        // 3. Dispatch real FCM push notification if user has fcmToken
         try {
             const user = await User.findById(userId).select('fcmToken');
-            if (user && user.fcmToken) {
-                console.log(`📱 Push notification logged for user ${userId}`);
+            if (user && user.fcmToken && firebaseAdmin) {
+                const message = {
+                    token: user.fcmToken,
+                    notification: { title, body },
+                    data: {
+                        type,
+                        bookingId: data.bookingId ? data.bookingId.toString() : '',
+                        status: data.status ? data.status.toString() : '',
+                        click_action: 'FLUTTER_NOTIFICATION_CLICK'
+                    },
+                    android: {
+                        priority: 'high',
+                        notification: {
+                            channelId: 'local_services_high_importance_v2',
+                            sound: 'default'
+                        }
+                    }
+                };
+                await firebaseAdmin.messaging().send(message);
+                console.log(`📱 Real FCM Push Notification sent to user ${userId}`);
             }
         } catch (fcmError) {
-            console.error('FCM Push Notification error:', fcmError.message);
+            console.warn('⚠️ FCM Push Notification notice:', fcmError.message);
         }
 
         return notification;

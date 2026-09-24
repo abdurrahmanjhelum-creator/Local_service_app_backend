@@ -69,7 +69,7 @@ const createBooking = async (req, res) => {
         const booking = await populateBooking(Booking.findById(created._id));
         const io = req.app.get('io');
         if (io) {
-            io.to(provider.toString()).emit('booking_created', created);
+            io.to(provider.toString()).emit('booking_created', booking);
         }
 
         // 🔔 Send Notification to Provider
@@ -178,8 +178,8 @@ const updateBookingStatus = async (req, res) => {
         const updatedBooking = await populateBooking(Booking.findById(booking._id));
         const io = req.app.get('io');
         if (io) {
-            io.to(booking.customer.toString()).emit('booking_status_updated', booking);
-            io.to(booking.provider.toString()).emit('booking_status_updated', booking);
+            io.to(booking.customer.toString()).emit('booking_status_updated', updatedBooking);
+            io.to(booking.provider.toString()).emit('booking_status_updated', updatedBooking);
         }
 
         // 🔔 Send Notification to opposite party
