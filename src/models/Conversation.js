@@ -79,19 +79,31 @@ conversationSchema.methods.isParticipant = function(userId) {
 // Static method to get or create conversation
 conversationSchema.statics.getOrCreate = async function(customerId, providerId, customerData, providerData) {
   let conversation = await this.findOne({
-    customerId,
-    providerId
+    $or: [
+      { customerId: customerId, providerId: providerId },
+      { customerId: providerId, providerId: customerId }
+    ]
   });
 
   if (!conversation) {
-    conversation = await this.create({
-      customerId,
-      customerName: customerData.name,
-      customerProfileImage: customerData.profileImage || '',
-      providerId,
-      providerName: providerData.name,
-      providerProfileImage: providerData.profileImage || ''
-    });
+    try {
+      conversation = await this.create({
+        customerId,
+        customerName: customerData.name || 'User',
+        customerProfileImage: customerData.profileImage || '',
+        providerId,
+        providerName: providerData.name || 'Provider',
+        providerProfileImage: providerData.profileImage || ''
+      });
+    } catch (err) {
+      conversation = await this.findOne({
+        $or: [
+          { customerId: customerId, providerId: providerId },
+          { customerId: providerId, providerId: customerId }
+        ]
+      });
+      if (!conversation) throw err;
+    }
   }
 
   return conversation;
