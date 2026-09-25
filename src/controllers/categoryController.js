@@ -14,14 +14,14 @@ const getCategories = async (req, res) => {
 
 // @desc    Create new category
 // @route   POST /api/categories
-// @access  Private (Admin/Provider)
+// @access  Private
 const createCategory = async (req, res) => {
     try {
         const { name, icon, iconName } = req.body;
 
         const categoryExists = await Category.findOne({ name });
         if (categoryExists) {
-            return res.status(400).json({ message: 'Category pehle se maujood hai' });
+            return res.status(400).json({ message: 'Category already exists.' });
         }
 
         const category = await Category.create({

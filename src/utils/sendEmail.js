@@ -1,25 +1,25 @@
 const nodemailer = require('nodemailer');
 
 const sendEmail = async (options) => {
-  // 1. Transporter banayein (Gmail service ke sath)
+  // 1. Create Nodemailer Transporter
   const transporter = nodemailer.createTransport({
     service: 'Gmail',
     auth: {
-      user: process.env.EMAIL_USER, // Aapki email (Hum ise .env me daalenge)
-      pass: process.env.EMAIL_PASS, // Aapka App Password (.env me daalenge)
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
   });
 
-  // 2. Email ke options set karein
+  // 2. Set Email Options
   const mailOptions = {
-    from: `"Local Services App" <${process.env.EMAIL_USER}>`,
+    from: `"LocalServe" <${process.env.EMAIL_USER}>`,
     to: options.email,
     subject: options.subject,
     text: options.message,
-    html: options.html, // Agar koi khoobsurat HTML template bhejna ho
+    html: options.html,
   };
 
-  // 3. Email send karein
+  // 3. Send Email
   await transporter.sendMail(mailOptions);
 };
 

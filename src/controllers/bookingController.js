@@ -1,7 +1,7 @@
 const Booking = require('../models/Booking');
-const User = require('../models/User'); // User model pull kiya provider ka current rate aur profile fetch karne ke liye
-const sendEmail = require('../utils/sendEmail'); // Completion OTP email par bejne ke liye helper import kiya
-const sendNotification = require('../utils/pushNotification'); // Notification helper
+const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
+const sendNotification = require('../utils/pushNotification');
 
 const populateBooking = (query) =>
     query
@@ -13,37 +13,37 @@ const populateBooking = (query) =>
 // @access  Private (Customer Only)
 const createBooking = async (req, res) => {
     try {
-        // 1. Strict Role Checking
+        // 1. Role Checking
         if (req.user.role !== 'customer') {
-            return res.status(403).json({ message: 'Sirf customers booking create kar sakte hain' });
+            return res.status(403).json({ message: 'Only customers can create bookings.' });
         }
 
         const { provider, categoryName, bookingDate, address } = req.body;
 
         if (!provider || !categoryName || !bookingDate || !address) {
             return res.status(400).json({
-                message: 'Provider, categoryName, bookingDate aur address dena zaroori hai'
+                message: 'Provider, category name, booking date, and address are required.'
             });
         }
 
         // 2. Fetch Provider Profile for Price Snapshot
         const providerProfile = await User.findById(provider);
         if (!providerProfile || providerProfile.role !== 'provider') {
-            return res.status(404).json({ message: 'Service expert/provider nahi mila' });
+            return res.status(404).json({ message: 'Service provider not found.' });
         }
 
-        // 3. 🛡️ DOUBLE BOOKING / OVERLAP PROTECTION LOGIC
+        // 3. OVERLAP PROTECTION LOGIC
         const targetDate = new Date(bookingDate);
 
-        // Aik expert ko aik service ke liye kam az kam 2 ghante chahiye hote hain.
-        // Hum check karenge ke is selected time se 2 ghante pehle ya 2 ghante baad koi job pehle se book to nahi hai.
+        // A provider requires at least a 2-hour window per job.
+        // Check for any overlapping bookings within +/- 2 hours.
         const twoHoursInMs = 2 * 60 * 60 * 1000;
         const startTime = new Date(targetDate.getTime() - twoHoursInMs);
         const endTime = new Date(targetDate.getTime() + twoHoursInMs);
 
         const isOverlapping = await Booking.findOne({
             provider: provider,
-            status: { $in: ['pending', 'accepted'] }, // Agar job pehle se waiting ya accept ho chuki hai
+            status: { $in: ['pending', 'accepted'] },
             bookingDate: {
                 $gte: startTime,
                 $lte: endTime
@@ -52,18 +52,18 @@ const createBooking = async (req, res) => {
 
         if (isOverlapping) {
             return res.status(400).json({
-                message: 'Yeh expert is time slot par pehle se busy hain. Kripya koi doosra time chuney.'
+                message: 'This provider is busy during the selected time slot. Please choose another time.'
             });
         }
 
-        // 4. Create Booking with Price Snapshot freeze
+        // 4. Create Booking with Price Snapshot
         const created = await Booking.create({
             customer: req.user._id,
             provider,
             categoryName,
             bookingDate,
             address,
-            bookedPrice: providerProfile.priceStarting || 0 // 💰 Price snapshot locked securely!
+            bookedPrice: providerProfile.priceStarting || 0
         });
 
         const booking = await populateBooking(Booking.findById(created._id));
@@ -72,12 +72,12 @@ const createBooking = async (req, res) => {
             io.to(provider.toString()).emit('booking_created', booking);
         }
 
-        // 🔔 Send Notification to Provider
+        // Send Notification to Provider
         await sendNotification({
             app: req.app,
             userId: provider,
-            title: 'Nayi Booking Request! 📬',
-            body: `${req.user.name} ne ${categoryName} ke liye booking bheji hai.`,
+            title: 'New Booking Request! 📬',
+            body: `${req.user.name} sent a booking request for ${categoryName}.`,
             type: 'booking_created',
             data: { bookingId: created._id.toString(), status: 'pending' }
         });
@@ -104,12 +104,12 @@ const getMyBookings = async (req, res) => {
     }
 };
 
-// @desc    Update booking status with verification logic (Accepted handles OTP generate, Completed matches OTP)
+// @desc    Update booking status with verification logic (Accepted generates OTP, Completed matches OTP)
 // @route   PUT /api/bookings/:id/status
 // @access  Private
 const updateBookingStatus = async (req, res) => {
     try {
-        const { status, otp } = req.body; // Flutter body se status ke sath OTP bhi bhej sakta hai
+        const { status, otp } = req.body;
         const validStatuses = ['pending', 'accepted', 'rejected', 'completed', 'cancelled'];
         if (status && !validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status value' });
@@ -117,58 +117,54 @@ const updateBookingStatus = async (req, res) => {
 
         const booking = await Booking.findById(req.params.id);
         if (!booking) {
-            return res.status(404).json({ message: 'Booking nahi mili' });
+            return res.status(404).json({ message: 'Booking not found.' });
         }
 
-        // Security check: Kisi doosre user ki booking update karne se block karein
+        // Security check: Block unauthorized user status updates
         if (req.user.role === 'customer' && booking.customer.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Customer sirf apni booking update kar sakta hai' });
+            return res.status(403).json({ message: 'Customers can only update their own bookings.' });
         }
         if (req.user.role === 'provider' && booking.provider.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Provider sirf apni booking update kar sakta hai' });
+            return res.status(403).json({ message: 'Providers can only update their own bookings.' });
         }
 
         // Action control rules
         if (req.user.role === 'customer' && !['rejected', 'cancelled'].includes(status)) {
-            return res.status(403).json({ message: 'Customer sirf booking cancel/reject kar sakta hai' });
+            return res.status(403).json({ message: 'Customers can only cancel or reject bookings.' });
         }
         if (req.user.role === 'provider' && !['accepted', 'rejected', 'completed', 'cancelled'].includes(status)) {
-            return res.status(403).json({ message: 'Provider ke liye invalid booking status' });
+            return res.status(403).json({ message: 'Invalid booking status for provider.' });
         }
 
-        // 🔄 ====== 🚨 REAL-WORLD SECURITY LOGIC FOR STATUS CHANGING ======
-
-        // A. JAB PROVIDER ORDER ACCEPT KARE: Hum dynamic 4-digit token generate karke customer ko email bhejenge
+        // WHEN PROVIDER ACCEPTS ORDER: Generate 4-digit code and send to customer via email
         if (status === 'accepted' && req.user.role === 'provider') {
-            const randomCode = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit code
+            const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
             booking.completionOtp = randomCode;
 
-            // Trigger email send asynchronously in background to avoid blocking HTTP response
             populateBooking(Booking.findById(booking._id)).then((fullBookingDetails) => {
                 if (fullBookingDetails && fullBookingDetails.customer) {
                     sendEmail({
                         email: fullBookingDetails.customer.email,
-                        subject: 'Job Security Code - Local Services',
-                        message: `Your booking has been accepted by ${req.user.name}. Your secure verification code is: ${randomCode}. Share this with the provider ONLY after your work is fully done.`,
-                        html: `<h3>Your Booking is Accepted!</h3>
+                        subject: 'Job Verification Code - LocalServe',
+                        message: `Your booking has been accepted by ${req.user.name}. Your secure verification code is: ${randomCode}. Share this with the provider ONLY after work is fully completed.`,
+                        html: `<h3>Your Booking Has Been Accepted!</h3>
                                <p>Expert <b>${req.user.name}</b> is on the way.</p>
-                               <p>Please share the secure job verification OTP below with the expert <b>ONLY AFTER the work is 100% completed</b>:</p>
+                               <p>Please share the secure job verification code below with the expert <b>ONLY AFTER work is 100% completed</b>:</p>
                                <h2 style="color: #10B981; font-size: 36px; letter-spacing: 3px; background: #F1F5F9; padding: 10px; display: inline-block;">${randomCode}</h2>
-                               <p style="color: #EF4444; font-weight: bold;">⚠️ Warning: Do not share this code before completion to avoid billing disputes!</p>`
+                               <p style="color: #EF4444; font-weight: bold;">⚠️ Warning: Do not share this code before completion.</p>`
                     }).catch((emailErr) => console.error('Background email error:', emailErr));
                 }
             }).catch((err) => console.error('Populate details error:', err));
         }
 
-        // B. 🔒 JAB PROVIDER ORDER COMPLETED KARE: Customer ka diya hua OTP match hona chahiye, warna operation strict block!
+        // WHEN PROVIDER COMPLETES ORDER: Match customer's OTP
         if (status === 'completed' && req.user.role === 'provider') {
             if (!otp) {
-                return res.status(400).json({ message: 'Kaam poora karne ke liye customer ka 4-Digit OTP enter karna zaroori hai.' });
+                return res.status(400).json({ message: 'Completion verification code (4-digit OTP) from customer is required.' });
             }
             if (booking.completionOtp !== otp.toString().trim()) {
-                return res.status(400).json({ message: 'Galat OTP code! Kripya customer se sahi code pooch kar dobara enter karein.' });
+                return res.status(400).json({ message: 'Invalid verification code. Please request the correct code from the customer.' });
             }
-            // OTP match ho gaya, ab system database se code flush/clear kar dega safety ke liye
             booking.completionOtp = undefined;
         }
 
@@ -182,7 +178,7 @@ const updateBookingStatus = async (req, res) => {
             io.to(booking.provider.toString()).emit('booking_status_updated', updatedBooking);
         }
 
-        // 🔔 Send Notification to opposite party
+        // Send Notification to recipient
         const targetUserId = req.user.role === 'provider' ? booking.customer : booking.provider;
         await sendNotification({
             app: req.app,

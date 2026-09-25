@@ -18,7 +18,7 @@ const getAllServiceProviders = async (req, res) => {
             ];
         }
 
-        // .select('-password') se password response mein nahi jayega
+        // Exclude password from query response
         const serviceProviders = await User.find(query).select('-password');
         res.json(serviceProviders);
     } catch (error) {
@@ -32,7 +32,7 @@ const getServiceProviderById = async (req, res) => {
             return res.status(400).json({ message: 'Invalid provider id' });
         }
 
-        // Ensure karein ke ID provider ki hi ho aur password hide ho
+        // Ensure user is a provider and exclude password
         const serviceProvider = await User.findOne({ 
             _id: req.params.id, 
             role: 'provider' 

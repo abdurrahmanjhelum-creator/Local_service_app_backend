@@ -35,7 +35,7 @@ const userSchema = new mongoose.Schema({
     // Service Provider Specific Fields
     category: {
         type: String,
-        default: '' // e.g., 'Electrician', 'Plumber'
+        default: ''
     },
     priceStarting: {
         type: Number,
@@ -55,10 +55,10 @@ const userSchema = new mongoose.Schema({
     },
     isVerified: {
         type: Boolean,
-        default: false // Shuru me false rahega, OTP verify hone par true hoga
+        default: false
     }
 }, {
-    timestamps: true // Automatically adds createdAt and updatedAt fields
+    timestamps: true
 });
 
 module.exports = mongoose.model('User', userSchema);

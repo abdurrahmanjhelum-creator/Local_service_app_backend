@@ -28,40 +28,40 @@ const formatUser = (user, token) => {
 };
 
 // ========================================================
-// TAREEQA 2: PRE-VERIFICATION OTP FLOW CONTROLLERS
+// PRE-VERIFICATION OTP FLOW CONTROLLERS
 // ========================================================
 
-// 1. Send OTP to Email (Pehle stage par sirf email check hogi)
+// 1. Send OTP to Email (Initial stage email check)
 const sendOtpBeforeRegister = async (req, res) => {
     try {
         const { email } = req.body || {};
 
         if (!email) {
-            return res.status(400).json({ message: 'Email dena zaroori hai' });
+            return res.status(400).json({ message: 'Email address is required.' });
         }
 
-        // Check karein ke kahin user pehle se registered toh nahi hai
+        // Check if user is already registered
         const userExists = await User.findOne({ email });
         if (userExists) {
-            return res.status(400).json({ message: 'Yeh email pehle se register hai. Login karein.' });
+            return res.status(400).json({ message: 'This email is already registered. Please log in.' });
         }
 
-        // 6-Digit Random OTP Generate karein
+        // Generate 6-Digit Random OTP
         const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
-        // Agar is email ka purana OTP pada hai toh use pehle delete kar dein (Clean state)
+        // Delete any existing OTP for this email
         await OTP.deleteMany({ email });
 
-        // OTP Collection me save karein
+        // Save OTP to Collection
         await OTP.create({
             email,
             otp: generatedOtp
         });
 
-        // Email send karein
+        // Send Email
         await sendEmail({
             email: email,
-            subject: 'Email Verification - Local Services App',
+            subject: 'Email Verification - LocalServe',
             message: `Your verification OTP code is: ${generatedOtp}. Valid for 5 minutes.`,
             html: `<h3>Account Verification</h3>
                    <p>Please use the following OTP to verify your email address:</p>
@@ -69,41 +69,41 @@ const sendOtpBeforeRegister = async (req, res) => {
                    <p>This code will expire in 5 minutes.</p>`
         });
 
-        res.status(200).json({ message: 'Verification OTP aapki email par bhej diya gaya hai.' });
+        res.status(200).json({ message: 'Verification OTP has been sent to your email.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// 2. Verify OTP (User ka entered code check karna)
+// 2. Verify OTP (Validate entered code)
 const verifyOtpBeforeRegister = async (req, res) => {
     try {
         const { email, otp } = req.body || {};
 
         if (!email || !otp) {
-            return res.status(400).json({ message: 'Email aur OTP dena zaroori hai' });
+            return res.status(400).json({ message: 'Email and OTP are required.' });
         }
 
-        // Database se is email ka recent OTP dhundhein
+        // Find recent OTP for this email
         const otpRecord = await OTP.findOne({ email, otp });
 
         if (!otpRecord) {
-            return res.status(400).json({ message: 'Invalid OTP code ya code expire ho chuka hai' });
+            return res.status(400).json({ message: 'Invalid or expired OTP code.' });
         }
 
-        // OTP sahi hai! Hamein temporary verification delete karni hai taake dobara use na ho sake
+        // Delete temporary OTP record
         await OTP.deleteOne({ _id: otpRecord._id });
 
         res.status(200).json({
             success: true,
-            message: 'Email successfully verify ho gayi hai! Ab aap account create kar sakte hain.'
+            message: 'Email verified successfully. You can now complete registration.'
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// 3. Register Complete (Jab email verify ho jaye, tab baqi details save hongi)
+// 3. Register Complete (Save user details after email verification)
 const registerComplete = async (req, res) => {
     try {
         const {
@@ -119,13 +119,13 @@ const registerComplete = async (req, res) => {
         } = req.body || {};
 
         if (!name || !email || !password || !phone) {
-            return res.status(400).json({ message: 'Tamam zaroori fields (Name, Email, Password, Phone) dena zaroori hain' });
+            return res.status(400).json({ message: 'All required fields (Name, Email, Password, Phone) must be provided.' });
         }
 
-        // Dobara security check ke kahin double registration na ho jaye
+        // Double registration check
         const userExists = await User.findOne({ email });
         if (userExists) {
-            return res.status(400).json({ message: 'Yeh email already register ho chuki hai.' });
+            return res.status(400).json({ message: 'This email is already registered.' });
         }
 
         const passwordhash = await bcrypt.hash(password, 10);
@@ -134,7 +134,7 @@ const registerComplete = async (req, res) => {
             ? (req.file.path.startsWith('http') ? req.file.path : `/uploads/${req.file.filename}`)
             : (profileImage || '');
 
-        // Account create karein direct 'isVerified: true' ke sath kyunki OTP pehle verify ho chuka hai
+        // Create account with isVerified: true since OTP was verified beforehand
         const user = await User.create({
             name,
             email,
@@ -146,7 +146,7 @@ const registerComplete = async (req, res) => {
             priceStarting: role === 'provider' ? Number(priceStarting ?? 0) : 0,
             experienceYears: role === 'provider' ? Number(experienceYears ?? 0) : 0,
             isAvailable: role === 'provider' ? true : undefined,
-            isVerified: true // 🔥 Pre-verified code flow complete!
+            isVerified: true
         });
 
         if (user) {
@@ -163,37 +163,37 @@ const registerComplete = async (req, res) => {
 // FORGOT PASSWORD FLOW CONTROLLERS
 // ========================================================
 
-// 1. Forgot Password - Send OTP (User email enter karega, hum use naya OTP bhejenge)
+// 1. Forgot Password - Send OTP
 const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body || {};
 
         if (!email) {
-            return res.status(400).json({ message: 'Email dena zaroori hai' });
+            return res.status(400).json({ message: 'Email address is required.' });
         }
 
-        // Pehle check karein ke kya yeh email database me exist karti bhi hai ya nahi
+        // Check if user exists
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(404).json({ message: 'Is email par koi account nahi mila.' });
+            return res.status(404).json({ message: 'No account found with this email address.' });
         }
 
-        // 6-Digit Random OTP Generate karein
+        // Generate 6-Digit Random OTP
         const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
-        // Agar purana koi OTP pada hai is email ka toh delete karein
+        // Delete previous OTP
         await OTP.deleteMany({ email });
 
-        // OTP collection me save karein
+        // Save OTP
         await OTP.create({
             email,
             otp: generatedOtp
         });
 
-        // Email send karein
+        // Send Email
         await sendEmail({
             email: email,
-            subject: 'Reset Password OTP - Local Services App',
+            subject: 'Reset Password OTP - LocalServe',
             message: `Your OTP code to reset password is: ${generatedOtp}. Valid for 5 minutes.`,
             html: `<h3>Reset Your Password</h3>
                    <p>We received a request to reset your password. Use the OTP code below to proceed:</p>
@@ -201,48 +201,48 @@ const forgotPassword = async (req, res) => {
                    <p>This code will expire in 5 minutes. If you didn't request this, please ignore this email.</p>`
         });
 
-        res.status(200).json({ message: 'Password reset OTP aapki email par bhej diya gaya hai.' });
+        res.status(200).json({ message: 'Password reset OTP has been sent to your email.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// 2. Reset Password (User background email, OTP aur naya password enter karega)
+// 2. Reset Password
 const resetPassword = async (req, res) => {
     try {
         const { email, otp, newPassword } = req.body || {};
 
         if (!email || !otp || !newPassword) {
-            return res.status(400).json({ message: 'Email, OTP aur Naya Password dena zaroori hai' });
+            return res.status(400).json({ message: 'Email, OTP, and New Password are required.' });
         }
 
         if (newPassword.length < 6) {
-            return res.status(400).json({ message: 'Password kam az kam 6 characters ka hona chahiye' });
+            return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
         }
 
-        // OTP token match karein database se
+        // Match OTP token
         const otpRecord = await OTP.findOne({ email, otp });
         if (!otpRecord) {
-            return res.status(400).json({ message: 'Invalid OTP code ya code expire ho chuka hai' });
+            return res.status(400).json({ message: 'Invalid or expired OTP code.' });
         }
 
-        // OTP sahi hai! User ko find karein
+        // Find user
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(404).json({ message: 'User nahi mila.' });
+            return res.status(404).json({ message: 'User not found.' });
         }
 
-        // Naye password ko hash karein
+        // Hash new password
         const passwordhash = await bcrypt.hash(newPassword, 10);
 
-        // Password update karein
+        // Update password
         user.password = passwordhash;
         await user.save();
 
-        // Kaam khatam hone ke baad temporary OTP delete kar dein
+        // Delete temporary OTP record
         await OTP.deleteOne({ _id: otpRecord._id });
 
-        res.status(200).json({ success: true, message: 'Password successfully change ho gaya hai! Ab aap naye password se login kar sakte hain.' });
+        res.status(200).json({ success: true, message: 'Password changed successfully. You can now log in with your new password.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -254,17 +254,17 @@ const loginUser = async (req, res) => {
         const { email, password } = req.body || {};
 
         if (!email || !password) {
-            return res.status(400).json({ message: 'Email aur password dena zaroori hai' });
+            return res.status(400).json({ message: 'Email and password are required.' });
         }
 
         const user = await User.findOne({ email });
         if (!user) {
-            return res.status(401).json({ message: 'User Not Found' });
+            return res.status(401).json({ message: 'User not found.' });
         }
 
         const passwordcheck = await bcrypt.compare(password, user.password);
         if (!passwordcheck) {
-            return res.status(401).json({ message: 'Invalid password' });
+            return res.status(401).json({ message: 'Invalid credentials.' });
         }
 
         res.json(formatUser(user, generateToken(user._id)));
@@ -303,7 +303,7 @@ const updateProfile = async (req, res) => {
         }).select('-password');
 
         if (!user) {
-            return res.status(404).json({ message: 'User nahi mila' });
+            return res.status(404).json({ message: 'User not found.' });
         }
 
         res.json(formatUser(user));
@@ -317,7 +317,7 @@ const getProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user._id).select('-password');
         if (!user) {
-            return res.status(404).json({ message: 'User nahi mila' });
+            return res.status(404).json({ message: 'User not found.' });
         }
         res.json(formatUser(user));
     } catch (error) {
@@ -331,7 +331,7 @@ const deleteUser = async (req, res) => {
         const userId = req.user._id;
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: 'User nahi mila' });
+            return res.status(404).json({ message: 'User not found.' });
         }
 
         await Booking.deleteMany({
@@ -342,7 +342,7 @@ const deleteUser = async (req, res) => {
         });
 
         await User.findByIdAndDelete(userId);
-        res.json({ message: 'Account aur related data safalta purvak delete ho gaya hai' });
+        res.json({ message: 'Account and all associated data deleted successfully.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

@@ -11,15 +11,15 @@ const createReview = async (req, res) => {
 
         // 1. Validation check
         if (!provider || !rating || !bookingId) {
-            return res.status(400).json({ message: 'Provider, rating aur bookingId dena zaroori hai' });
+            return res.status(400).json({ message: 'Provider, rating, and booking ID are required.' });
         }
 
-        // 2. Check karein ke rating 1 se 5 ke darmiyan hai ya nahi
+        // 2. Rating range check (1 to 5)
         if (rating < 1 || rating > 5) {
-            return res.status(400).json({ message: 'Rating 1 se 5 ke darmiyan honi chahiye' });
+            return res.status(400).json({ message: 'Rating must be between 1 and 5.' });
         }
 
-        // 3. Verify karein ke kya yeh specific booking complete ho chuki hai aur pehle review nahi hua
+        // 3. Verify completed booking
         const booking = await Booking.findOne({
             _id: bookingId,
             customer: req.user._id,
@@ -29,26 +29,26 @@ const createReview = async (req, res) => {
 
         if (!booking) {
             return res.status(400).json({ 
-                message: 'Review dene ke liye booking ka mukammal (completed) hona zaroori hai'
+                message: 'Booking must be completed before submitting a review.'
             });
         }
 
         if (booking.isReviewed) {
             return res.status(400).json({
-                message: 'Aap is booking ke liye pehle hi review de chuke hain'
+                message: 'You have already submitted a review for this booking.'
             });
         }
 
-        // 4. Review create karein
+        // 4. Create Review
         const review = await Review.create({
-            booking: bookingId, // 🔥 Linked the booking ID properly
+            booking: bookingId,
             customer: req.user._id,
             provider,
             rating,
             comment
         });
 
-        // 5. Booking ko marked karein ke iska review ho gaya hai
+        // 5. Mark booking as reviewed
         booking.isReviewed = true;
         await booking.save();
 
@@ -59,7 +59,6 @@ const createReview = async (req, res) => {
         const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
         await User.findByIdAndUpdate(provider, { rating: Number(avgRating.toFixed(1)) });
 
-        // 🔥 IMPORTANT: Return the updated booking so frontend can sync state immediately
         const updatedBooking = await Booking.findById(bookingId)
             .populate('customer', 'name email phone profileImage')
             .populate('provider', 'name email phone category priceStarting profileImage');

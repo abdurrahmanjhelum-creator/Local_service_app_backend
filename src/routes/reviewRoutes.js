@@ -6,10 +6,10 @@ const {
 } = require('../controllers/reviewController');
 const authMiddleware = require('../middleware/authMiddleware');
 
-// Public route: Kisi bhi provider ke reviews dekhna
+// Public route: Fetch reviews for a specific provider
 router.get('/provider/:providerId', getProviderReviews);
 
-// Protected route: Review post karne ke liye login token zaroori hai
+// Protected route: Post a new review
 router.post('/', authMiddleware, createReview);
 
 module.exports = router;

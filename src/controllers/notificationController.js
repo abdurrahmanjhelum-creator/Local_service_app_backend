@@ -36,7 +36,7 @@ const markAsRead = async (req, res) => {
         );
 
         if (!notification) {
-            return res.status(404).json({ message: 'Notification nahi mili' });
+            return res.status(404).json({ message: 'Notification not found.' });
         }
 
         res.json(notification);
@@ -55,7 +55,7 @@ const markAllAsRead = async (req, res) => {
             { isRead: true }
         );
 
-        res.json({ message: 'Tamam notifications read mark ho gayi hain' });
+        res.json({ message: 'All notifications marked as read.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -67,7 +67,7 @@ const markAllAsRead = async (req, res) => {
 const clearNotifications = async (req, res) => {
     try {
         await Notification.deleteMany({ user: req.user._id });
-        res.json({ message: 'Notification history saaf kar di gayi hai' });
+        res.json({ message: 'Notification history cleared.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -80,11 +80,11 @@ const updateFcmToken = async (req, res) => {
     try {
         const { fcmToken } = req.body;
         if (!fcmToken) {
-            return res.status(400).json({ message: 'FCM Token dena zaroori hai' });
+            return res.status(400).json({ message: 'FCM token is required.' });
         }
 
         await User.findByIdAndUpdate(req.user._id, { fcmToken });
-        res.json({ message: 'FCM Token successfully update ho gaya hai' });
+        res.json({ message: 'FCM token updated successfully.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

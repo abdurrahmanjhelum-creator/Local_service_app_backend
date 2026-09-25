@@ -1,61 +1,59 @@
 const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
-    // 1. Book karne wale Customer ki ID
+    // 1. Customer User ID
     customer: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    // 2. Jise book kiya ja raha hai us Provider ki ID
+    // 2. Provider User ID
     provider: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    // 3. Service ki Category (e.g., Electrician, Plumber)
+    // 3. Service Category Name
     categoryName: {
         type: String,
         required: true
     },
-    // 4. Kis tareekh aur time par aana hai
+    // 4. Booking Scheduled Date and Time
     bookingDate: {
         type: Date,
         required: true
     },
-    // 5. Gher ka Address jahan service chahiye
+    // 5. Service Address
     address: {
         type: String,
         required: true
     },
-    // 6. Booking ka status (Auto 'pending' hoga start mein)
+    // 6. Booking Status
     status: {
         type: String,
         enum: ['pending', 'accepted', 'rejected', 'completed', 'cancelled'],
         default: 'pending'
     },
 
-    // ======= 🚀 NEW SECURITY & DISPUTE FIELDS ADDED =======
-
-    // 7. Price Snapshot: Booking karte waqt ka fix rate yahan freeze hoga
+    // 7. Price Snapshot
     bookedPrice: {
         type: Number,
-        default: 0 // Made default 0 instead of required to support older records
+        default: 0
     },
 
-    // 8. Completion OTP: Job verification ke liye 4-digit code store hoga
+    // 8. Completion Verification OTP (4-digit code)
     completionOtp: {
         type: String,
-        default: undefined // Shuru mein khali hoga, jab provider accept karega tab generate hoga
+        default: undefined
     },
 
-    // 9. Review Status: Check karne ke liye ke kya customer ne review de diya hai
+    // 9. Review Status Flag
     isReviewed: {
         type: Boolean,
         default: false
     }
 }, {
-    timestamps: true // Automated Created Date & Time (createdAt, updatedAt)
+    timestamps: true
 });
 
 module.exports = mongoose.model('Booking', bookingSchema);
