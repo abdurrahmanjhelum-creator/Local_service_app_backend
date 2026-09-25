@@ -1,7 +1,7 @@
 {
   "name": "local_services_backend",
   "version": "1.0.0",
-  "description": "Local Services App Backend API",
+  "description": "LocalServe backend API",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

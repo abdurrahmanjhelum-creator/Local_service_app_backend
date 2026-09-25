@@ -25,7 +25,10 @@ const sendNotification = async ({ app, userId, title, body, type = 'general', da
         if (app) {
             const io = app.get('io');
             if (io) {
-                io.to(userId.toString()).emit('notification_received', notification);
+                const payload = notification.toObject();
+                payload._id = notification._id.toString();
+                payload.user = notification.user.toString();
+                io.to(userId.toString()).emit('notification_received', payload);
             }
         }
 
@@ -37,7 +40,9 @@ const sendNotification = async ({ app, userId, title, body, type = 'general', da
                     token: user.fcmToken,
                     notification: { title, body },
                     data: {
-                        type,
+                        type: String(type || 'general'),
+                        title: String(title || ''),
+                        body: String(body || ''),
                         bookingId: data.bookingId ? data.bookingId.toString() : '',
                         status: data.status ? data.status.toString() : '',
                         click_action: 'FLUTTER_NOTIFICATION_CLICK'
@@ -45,8 +50,16 @@ const sendNotification = async ({ app, userId, title, body, type = 'general', da
                     android: {
                         priority: 'high',
                         notification: {
-                            channelId: 'local_services_high_importance_v2',
+                            channelId: 'local_services_high_importance_v3',
                             sound: 'default'
+                        }
+                    },
+                    apns: {
+                        payload: {
+                            aps: {
+                                sound: 'default',
+                                badge: 1
+                            }
                         }
                     }
                 };
