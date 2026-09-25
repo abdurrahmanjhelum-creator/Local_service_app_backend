@@ -264,7 +264,7 @@ const markMessagesAsRead = async (req, res) => {
 const deleteConversation = async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const { userId } = req.body;
+    const userId = req.user._id.toString();
 
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
@@ -278,6 +278,12 @@ const deleteConversation = async (req, res) => {
     // Soft delete - mark as inactive
     conversation.isActive = false;
     await conversation.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(conversation.customerId.toString()).emit('conversation_updated', conversation);
+      io.to(conversation.providerId.toString()).emit('conversation_updated', conversation);
+    }
 
     res.json({ message: 'Conversation deleted' });
   } catch (error) {
