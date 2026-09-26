@@ -6,8 +6,9 @@ const getAllServiceProviders = async (req, res) => {
         let query = { role: 'provider' };
 
         if (category && category !== 'All') {
+            // More flexible category matching - contains instead of exact match
             const escaped = String(category).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            query.category = { $regex: `^${escaped}$`, $options: 'i' };
+            query.category = { $regex: escaped, $options: 'i' };
         }
 
         if (search && search.trim()) {

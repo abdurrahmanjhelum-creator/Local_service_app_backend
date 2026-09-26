@@ -16,6 +16,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -257,6 +258,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/location', locationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

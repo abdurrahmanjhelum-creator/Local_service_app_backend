@@ -115,7 +115,10 @@ const registerComplete = async (req, res) => {
             category,
             priceStarting,
             experienceYears,
-            profileImage
+            profileImage,
+            address,
+            latitude,
+            longitude
         } = req.body || {};
 
         if (!name || !email || !password || !phone) {
@@ -145,6 +148,9 @@ const registerComplete = async (req, res) => {
             category: role === 'provider' ? category || '' : '',
             priceStarting: role === 'provider' ? Number(priceStarting ?? 0) : 0,
             experienceYears: role === 'provider' ? Number(experienceYears ?? 0) : 0,
+            address: address || '',
+            latitude: latitude ? Number(latitude) : undefined,
+            longitude: longitude ? Number(longitude) : undefined,
             isAvailable: role === 'provider' ? true : undefined,
             isVerified: true
         });
