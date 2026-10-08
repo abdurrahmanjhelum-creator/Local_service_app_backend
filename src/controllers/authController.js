@@ -4,6 +4,7 @@ const OTP = require('../models/OTP');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
 const bcrypt = require('bcryptjs');
+const logger = require('../utils/logger');
 
 const formatUser = (user, token) => {
     const data = {
@@ -134,7 +135,7 @@ const registerComplete = async (req, res) => {
         const passwordhash = await bcrypt.hash(password, 10);
 
         const imageUrl = req.file
-            ? (req.file.path.startsWith('http') ? req.file.path : `/uploads/${req.file.filename}`)
+            ? req.file.cloudinaryUrl || (req.file.path.startsWith('http') ? req.file.path : `/uploads/${req.file.filename}`)
             : (profileImage || '');
 
         // Create account with isVerified: true since OTP was verified beforehand
@@ -187,13 +188,16 @@ const forgotPassword = async (req, res) => {
         // Generate 6-Digit Random OTP
         const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
+        // Hash OTP for security
+        const hashedOtp = await bcrypt.hash(generatedOtp, 10);
+
         // Delete previous OTP
         await OTP.deleteMany({ email });
 
-        // Save OTP
+        // Save hashed OTP
         await OTP.create({
             email,
-            otp: generatedOtp
+            otp: hashedOtp
         });
 
         // Send Email
@@ -222,13 +226,32 @@ const resetPassword = async (req, res) => {
             return res.status(400).json({ message: 'Email, OTP, and New Password are required.' });
         }
 
-        if (newPassword.length < 6) {
-            return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+        if (newPassword.length < 8) {
+            return res.status(400).json({ message: 'Password must be at least 8 characters long.' });
         }
 
-        // Match OTP token
-        const otpRecord = await OTP.findOne({ email, otp });
+        // Password strength validation
+        const hasUpperCase = /[A-Z]/.test(newPassword);
+        const hasLowerCase = /[a-z]/.test(newPassword);
+        const hasNumbers = /\d/.test(newPassword);
+        
+        if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+            return res.status(400).json({ 
+                message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number.' 
+            });
+        }
+
+        // Match OTP token (compare with hashed OTP)
+        const otpRecords = await OTP.find({ email }).sort({ createdAt: -1 }).limit(1);
+        const otpRecord = otpRecords[0];
+        
         if (!otpRecord) {
+            return res.status(400).json({ message: 'Invalid or expired OTP code.' });
+        }
+
+        // Verify OTP hash
+        const isOtpValid = await bcrypt.compare(otp, otpRecord.otp);
+        if (!isOtpValid) {
             return res.status(400).json({ message: 'Invalid or expired OTP code.' });
         }
 

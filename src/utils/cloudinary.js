@@ -1,6 +1,7 @@
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
 require('dotenv').config();
 
 const hasCloudinary =
@@ -17,33 +18,25 @@ if (hasCloudinary) {
     });
 }
 
-const path = require('path');
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../../uploads');
+fs.mkdir(uploadsDir, { recursive: true }).catch(() => {});
 
-const storage = hasCloudinary
-    ? new CloudinaryStorage({
-        cloudinary,
-        params: {
-            folder: 'local_services_app/profiles',
-            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-            transformation: [{ width: 800, height: 800, crop: 'limit' }]
-        }
-    })
-    : multer.diskStorage({
-        destination: (req, file, cb) => {
-            cb(null, path.join(__dirname, '../../uploads'));
-        },
-        filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            const ext = path.extname(file.originalname);
-            cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-        }
-    });
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    }
+});
 
 const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, callback) => {
-        console.log('Multer receiving file:', file.originalname, 'MimeType:', file.mimetype);
         if (file.mimetype.startsWith('image/')) {
             return callback(null, true);
         }
@@ -51,19 +44,52 @@ const upload = multer({
     }
 });
 
-const uploadImage = (req, res, next) => {
-    upload.single('image')(req, res, (err) => {
+// Upload to Cloudinary if configured, otherwise return local path
+const uploadToCloudinary = async (filePath, folder = 'local_services_app/profiles') => {
+    if (!hasCloudinary) {
+        return null;
+    }
+
+    try {
+        const result = await cloudinary.uploader.upload(filePath, {
+            folder,
+            transformation: [{ width: 800, height: 800, crop: 'limit' }],
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp']
+        });
+        
+        // Delete local file after successful upload
+        await fs.unlink(filePath);
+        
+        return result.secure_url;
+    } catch (error) {
+        console.error('Cloudinary upload error:', error);
+        return null;
+    }
+};
+
+const uploadImage = async (req, res, next) => {
+    upload.single('image')(req, res, async (err) => {
         if (err) {
-            console.error('Image upload error:', err);
             return res.status(400).json({ message: 'Image upload failed: ' + err.message });
         }
-        if (req.file) {
-            console.log('Image uploaded successfully:', req.file.path || req.file.filename);
-        } else {
-            console.log('No image file in request');
+
+        if (!req.file) {
+            return next();
         }
-        next();
+
+        try {
+            if (hasCloudinary) {
+                const cloudinaryUrl = await uploadToCloudinary(req.file.path);
+                if (cloudinaryUrl) {
+                    req.file.cloudinaryUrl = cloudinaryUrl;
+                    req.file.path = cloudinaryUrl;
+                }
+            }
+            next();
+        } catch (error) {
+            return res.status(500).json({ message: 'Image processing failed: ' + error.message });
+        }
     });
 };
 
-module.exports = { cloudinary, upload, uploadImage };
+module.exports = { cloudinary, upload, uploadImage, uploadToCloudinary };

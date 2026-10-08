@@ -1,7 +1,9 @@
 const Booking = require('../models/Booking');
 const User = require('../models/User');
+const Availability = require('../models/Availability');
 const sendEmail = require('../utils/sendEmail');
 const sendNotification = require('../utils/pushNotification');
+const logger = require('../utils/logger');
 
 const populateBooking = (query) =>
     query
@@ -18,7 +20,7 @@ const createBooking = async (req, res) => {
             return res.status(403).json({ message: 'Only customers can create bookings.' });
         }
 
-        const { provider, categoryName, bookingDate, address } = req.body;
+        const { provider, categoryName, bookingDate, address, startTime, endTime } = req.body;
 
         if (!provider || !categoryName || !bookingDate || !address) {
             return res.status(400).json({
@@ -32,28 +34,45 @@ const createBooking = async (req, res) => {
             return res.status(404).json({ message: 'Service provider not found.' });
         }
 
-        // 3. OVERLAP PROTECTION LOGIC
+        // 3. Availability / overlap protection
         const targetDate = new Date(bookingDate);
+        const dateKey = targetDate.toISOString().split('T')[0];
 
-        // A provider requires at least a 2-hour window per job.
-        // Check for any overlapping bookings within +/- 2 hours.
-        const twoHoursInMs = 2 * 60 * 60 * 1000;
-        const startTime = new Date(targetDate.getTime() - twoHoursInMs);
-        const endTime = new Date(targetDate.getTime() + twoHoursInMs);
+        if (startTime && endTime) {
+            const normalizedStart = String(startTime).slice(0, 5);
+            const normalizedEnd = String(endTime).slice(0, 5);
 
-        const isOverlapping = await Booking.findOne({
-            provider: provider,
-            status: { $in: ['pending', 'accepted'] },
-            bookingDate: {
-                $gte: startTime,
-                $lte: endTime
+            const slotAvailable = await Availability.isSlotAvailable(
+                provider,
+                dateKey,
+                normalizedStart,
+                normalizedEnd
+            );
+
+            if (!slotAvailable) {
+                return res.status(400).json({
+                    message: 'This time slot is already booked or unavailable. Please choose another time.'
+                });
             }
-        });
+        } else {
+            const twoHoursInMs = 2 * 60 * 60 * 1000;
+            const startWindow = new Date(targetDate.getTime() - twoHoursInMs);
+            const endWindow = new Date(targetDate.getTime() + twoHoursInMs);
 
-        if (isOverlapping) {
-            return res.status(400).json({
-                message: 'This provider is busy during the selected time slot. Please choose another time.'
+            const isOverlapping = await Booking.findOne({
+                provider: provider,
+                status: { $in: ['pending', 'accepted'] },
+                bookingDate: {
+                    $gte: startWindow,
+                    $lte: endWindow
+                }
             });
+
+            if (isOverlapping) {
+                return res.status(400).json({
+                    message: 'This provider is busy during the selected time slot. Please choose another time.'
+                });
+            }
         }
 
         // 4. Create Booking with Price Snapshot
@@ -65,6 +84,19 @@ const createBooking = async (req, res) => {
             address,
             bookedPrice: providerProfile.priceStarting || 0
         });
+
+        if (startTime && endTime) {
+            try {
+                const normalizedStart = String(startTime).slice(0, 5);
+                const normalizedEnd = String(endTime).slice(0, 5);
+                await Availability.bookTimeSlot(provider, dateKey, normalizedStart, normalizedEnd, created._id);
+            } catch (slotError) {
+                await Booking.findByIdAndDelete(created._id);
+                return res.status(400).json({
+                    message: slotError.message || 'The selected slot is not available.'
+                });
+            }
+        }
 
         const booking = await populateBooking(Booking.findById(created._id));
         const io = req.app.get('io');
