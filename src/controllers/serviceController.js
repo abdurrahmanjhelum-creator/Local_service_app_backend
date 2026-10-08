@@ -33,6 +33,7 @@ const getAllServiceProviders = async (req, res) => {
 
         // Category filter
         if (category && category !== 'All') {
+            // More flexible category matching - contains instead of exact match
             const escaped = String(category).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             query.category = { $regex: escaped, $options: 'i' };
         }
