@@ -56,7 +56,7 @@ exports.updateAvailability = async (req, res) => {
   try {
     const { availabilityId } = req.params;
     const { timeSlots, isAvailable, note } = req.body;
-    const providerId = req.user.id;
+    const providerId = req.user._id;
 
     const availability = await Availability.findById(availabilityId);
 
@@ -105,7 +105,7 @@ exports.updateAvailability = async (req, res) => {
 exports.getAvailability = async (req, res) => {
   try {
     const { providerId, startDate, endDate } = req.query;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     // Verify provider exists
     const provider = await User.findById(providerId);
@@ -137,7 +137,7 @@ exports.getAvailability = async (req, res) => {
 exports.getMyAvailability = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const providerId = req.user.id;
+    const providerId = req.user._id;
 
     // Verify user is a provider
     const user = await User.findById(providerId);
@@ -169,7 +169,7 @@ exports.getMyAvailability = async (req, res) => {
 exports.deleteAvailability = async (req, res) => {
   try {
     const { availabilityId } = req.params;
-    const providerId = req.user.id;
+    const providerId = req.user._id;
 
     const availability = await Availability.findById(availabilityId);
 
@@ -273,7 +273,7 @@ exports.bookTimeSlot = async (req, res) => {
 exports.releaseTimeSlot = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     // Verify booking exists and belongs to user
     const booking = await Booking.findById(bookingId);
