@@ -216,17 +216,20 @@ const sendMessage = async (req, res) => {
       io.emit('message_sent', message);
     }
 
-    // Persist + push notification for recipient (panel + FCM / in-app alert)
+    // WhatsApp-style: title = who, body = message preview
     const preview = (content || '').toString().trim();
+    const who = senderName || 'Someone';
     await sendNotification({
       app: req.app,
       userId: recipientId,
-      title: `New message from ${senderName || 'User'}`,
-      body: preview.length > 80 ? `${preview.slice(0, 80)}…` : (preview || 'You have a new message'),
+      title: who,
+      body: preview.length > 100 ? `${preview.slice(0, 100)}…` : (preview || 'Sent you a message'),
       type: 'message',
       data: {
         conversationId: conversationId.toString(),
         messageId: message._id.toString(),
+        fromUserId: senderId.toString(),
+        fromUserName: who,
       },
     });
 

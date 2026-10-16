@@ -25,6 +25,8 @@ const notificationSchema = new mongoose.Schema({
         status: { type: String, default: '' },
         conversationId: { type: String, default: '' },
         messageId: { type: String, default: '' },
+        fromUserId: { type: String, default: '' },
+        fromUserName: { type: String, default: '' },
     },
     isRead: {
         type: Boolean,

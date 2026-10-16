@@ -104,14 +104,19 @@ const createBooking = async (req, res) => {
             io.to(provider.toString()).emit('booking_created', booking);
         }
 
-        // Send Notification to Provider
+        // Send Notification to Provider (WhatsApp-style clear context)
         await sendNotification({
             app: req.app,
             userId: provider,
-            title: 'New Booking Request! 📬',
-            body: `${req.user.name} sent a booking request for ${categoryName}.`,
+            title: `Booking · ${req.user.name}`,
+            body: `New ${categoryName || 'service'} request from ${req.user.name}. Tap to open booking.`,
             type: 'booking_created',
-            data: { bookingId: created._id.toString(), status: 'pending' }
+            data: {
+                bookingId: created._id.toString(),
+                status: 'pending',
+                fromUserId: req.user._id.toString(),
+                fromUserName: req.user.name || '',
+            }
         });
 
         res.status(201).json(booking);
@@ -210,15 +215,21 @@ const updateBookingStatus = async (req, res) => {
             io.to(booking.provider.toString()).emit('booking_status_updated', updatedBooking);
         }
 
-        // Send Notification to recipient
+        // Send Notification to recipient (clear who + what)
         const targetUserId = req.user.role === 'provider' ? booking.customer : booking.provider;
+        const statusLabel = String(status || '').replace(/_/g, ' ');
         await sendNotification({
             app: req.app,
             userId: targetUserId,
-            title: `Booking Update: ${status.toUpperCase()} 📬`,
-            body: `Booking status changed to '${status}' by ${req.user.name}.`,
+            title: `Booking · ${req.user.name}`,
+            body: `${req.user.name} marked this booking as ${statusLabel}.`,
             type: 'booking_status',
-            data: { bookingId: booking._id.toString(), status }
+            data: {
+                bookingId: booking._id.toString(),
+                status,
+                fromUserId: req.user._id.toString(),
+                fromUserName: req.user.name || '',
+            }
         });
 
         res.json(updatedBooking);
