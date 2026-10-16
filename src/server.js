@@ -37,6 +37,17 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// Seed default service categories once at startup (local / non-serverless)
+(async () => {
+  try {
+    await connectDB();
+    const seedCategories = require('./utils/seedCategories');
+    await seedCategories();
+  } catch (e) {
+    console.error('Category seed on startup failed:', e.message);
+  }
+})();
+
 // Socket.io Setup
 if (!process.env.VERCEL) {
   const server = http.createServer(app);

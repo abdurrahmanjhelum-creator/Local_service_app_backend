@@ -49,9 +49,16 @@ app.set('io', {
   emit: () => {}
 });
 
+let categoriesSeeded = false;
+
 app.use(async (req, res, next) => {
   try {
     await connectDB();
+    if (!categoriesSeeded) {
+      const seedCategories = require('../src/utils/seedCategories');
+      await seedCategories();
+      categoriesSeeded = true;
+    }
   } catch (e) {
     console.error('DB connect error:', e);
   }
