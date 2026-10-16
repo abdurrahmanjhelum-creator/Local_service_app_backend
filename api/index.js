@@ -6,6 +6,22 @@ const { notFound, errorHandler } = require('../src/middleware/errorMiddleware');
 
 dotenv.config();
 
+// Initialize Firebase safely for Vercel
+try {
+  const admin = require('firebase-admin');
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log('✅ Firebase Admin SDK initialized from ENV');
+    }
+  }
+} catch (error) {
+  console.log('⚠️ Firebase initialization skipped:', error.message);
+}
+
 const authRoutes = require('../src/routes/authRoutes');
 const serviceRoutes = require('../src/routes/serviceRoutes');
 const bookingRoutes = require('../src/routes/bookingRoutes');
@@ -13,9 +29,8 @@ const categoryRoutes = require('../src/routes/categoryRoutes');
 const reviewRoutes = require('../src/routes/reviewRoutes');
 const notificationRoutes = require('../src/routes/notificationRoutes');
 const chatRoutes = require('../src/routes/chatRoutes');
-// Temporarily disabled - causing Vercel deployment issues
-// const locationRoutes = require('../src/routes/locationRoutes');
-// const availabilityRoutes = require('../src/routes/availabilityRoutes');
+const locationRoutes = require('../src/routes/locationRoutes');
+const availabilityRoutes = require('../src/routes/availabilityRoutes');
 
 const app = express();
 
@@ -58,9 +73,8 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
-// Temporarily disabled - causing Vercel deployment issues
-// app.use('/api/location', locationRoutes);
-// app.use('/api/availability', availabilityRoutes);
+app.use('/api/location', locationRoutes);
+app.use('/api/availability', availabilityRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
