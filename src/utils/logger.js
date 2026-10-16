@@ -1,5 +1,6 @@
 const winston = require('winston');
 const path = require('path');
+const fs = require('fs');
 
 // Define log format
 const logFormat = winston.format.combine(
@@ -27,22 +28,28 @@ const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: logFormat,
   transports: [
-    // Write all logs to console
     new winston.transports.Console({
       format: process.env.NODE_ENV === 'production' ? logFormat : consoleFormat,
     }),
   ],
 });
 
-// Add file transport in production
-if (process.env.NODE_ENV === 'production') {
-  logger.add(new winston.transports.File({
-    filename: path.join(__dirname, '../../logs/error.log'),
-    level: 'error',
-  }));
-  logger.add(new winston.transports.File({
-    filename: path.join(__dirname, '../../logs/combined.log'),
-  }));
+// File logs only for local/non-serverless — Vercel filesystem is read-only
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+if (process.env.NODE_ENV === 'production' && !isServerless) {
+  const logsDir = path.join(__dirname, '../../logs');
+  try {
+    fs.mkdirSync(logsDir, { recursive: true });
+    logger.add(new winston.transports.File({
+      filename: path.join(logsDir, 'error.log'),
+      level: 'error',
+    }));
+    logger.add(new winston.transports.File({
+      filename: path.join(logsDir, 'combined.log'),
+    }));
+  } catch (err) {
+    console.warn('File logging disabled:', err.message);
+  }
 }
 
 module.exports = logger;
