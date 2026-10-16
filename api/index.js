@@ -66,6 +66,14 @@ app.get('/api', (req, res) => {
   res.json({ message: 'Local Services API is running on Vercel' });
 });
 
+app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose');
+  res.json({
+    status: 'ok',
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/bookings', bookingRoutes);

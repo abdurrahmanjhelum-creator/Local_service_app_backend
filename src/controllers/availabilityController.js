@@ -6,7 +6,7 @@ const User = require('../models/User');
 exports.createAvailability = async (req, res) => {
   try {
     const { date, timeSlots, note } = req.body;
-    const providerId = req.user.id;
+    const providerId = req.user._id;
 
     // Verify user is a provider
     const user = await User.findById(providerId);
@@ -65,7 +65,7 @@ exports.updateAvailability = async (req, res) => {
     }
 
     // Verify ownership
-    if (availability.provider.toString() !== providerId) {
+    if (availability.provider.toString() !== providerId.toString()) {
       return res.status(403).json({ message: 'Not authorized to update this availability' });
     }
 
@@ -105,7 +105,6 @@ exports.updateAvailability = async (req, res) => {
 exports.getAvailability = async (req, res) => {
   try {
     const { providerId, startDate, endDate } = req.query;
-    const userId = req.user._id;
 
     // Verify provider exists
     const provider = await User.findById(providerId);
@@ -178,7 +177,7 @@ exports.deleteAvailability = async (req, res) => {
     }
 
     // Verify ownership
-    if (availability.provider.toString() !== providerId) {
+    if (availability.provider.toString() !== providerId.toString()) {
       return res.status(403).json({ message: 'Not authorized to delete this availability' });
     }
 
@@ -234,7 +233,7 @@ exports.checkSlotAvailability = async (req, res) => {
 exports.bookTimeSlot = async (req, res) => {
   try {
     const { providerId, date, startTime, endTime, bookingId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id.toString();
 
     // Verify booking exists and belongs to user
     const booking = await Booking.findById(bookingId);
@@ -273,7 +272,7 @@ exports.bookTimeSlot = async (req, res) => {
 exports.releaseTimeSlot = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user._id.toString();
 
     // Verify booking exists and belongs to user
     const booking = await Booking.findById(bookingId);
@@ -294,6 +293,64 @@ exports.releaseTimeSlot = async (req, res) => {
     res.status(500).json({ 
       message: 'Error releasing time slot',
       error: error.message 
+    });
+  }
+};
+
+// Check for overlapping time slots on a date (used by frontend conflict detection)
+exports.checkConflicts = async (req, res) => {
+  try {
+    const { providerId, date, timeSlots } = req.body;
+
+    if (!providerId || !date || !Array.isArray(timeSlots)) {
+      return res.status(400).json({
+        message: 'providerId, date, and timeSlots are required',
+      });
+    }
+
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const availability = await Availability.findOne({
+      provider: providerId,
+      date: dayStart,
+    });
+
+    const conflicts = [];
+
+    if (availability && Array.isArray(availability.timeSlots)) {
+      for (const newSlot of timeSlots) {
+        const newStart = newSlot.startTime;
+        const newEnd = newSlot.endTime;
+        if (!newStart || !newEnd) continue;
+
+        for (const existing of availability.timeSlots) {
+          if (existing.isAvailable !== false) continue;
+          const overlaps =
+            newStart < existing.endTime && newEnd > existing.startTime;
+          if (overlaps) {
+            conflicts.push({
+              requested: { startTime: newStart, endTime: newEnd },
+              conflicting: {
+                startTime: existing.startTime,
+                endTime: existing.endTime,
+                bookingId: existing.bookingId,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    res.status(200).json({
+      hasConflicts: conflicts.length > 0,
+      conflicts,
+    });
+  } catch (error) {
+    console.error('Error checking conflicts:', error);
+    res.status(500).json({
+      message: 'Error checking conflicts',
+      error: error.message,
     });
   }
 };

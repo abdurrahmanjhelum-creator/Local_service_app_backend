@@ -15,8 +15,7 @@ try {
             });
             console.log('✅ Firebase Admin SDK initialized from ENV');
         } else {
-            firebaseAdmin = admin.initializeApp();
-            console.log('✅ Firebase Admin SDK initialized with default app');
+            console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT_JSON not set — FCM disabled');
         }
     }
 } catch (error) {
