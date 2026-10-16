@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const sendNotification = require('../utils/pushNotification');
 
 // @desc    Get all conversations for a user
 // @route   GET /api/chat/conversations/:userId
@@ -214,6 +215,20 @@ const sendMessage = async (req, res) => {
       // Emit message sent confirmation
       io.emit('message_sent', message);
     }
+
+    // Persist + push notification for recipient (panel + FCM / in-app alert)
+    const preview = (content || '').toString().trim();
+    await sendNotification({
+      app: req.app,
+      userId: recipientId,
+      title: `New message from ${senderName || 'User'}`,
+      body: preview.length > 80 ? `${preview.slice(0, 80)}…` : (preview || 'You have a new message'),
+      type: 'message',
+      data: {
+        conversationId: conversationId.toString(),
+        messageId: message._id.toString(),
+      },
+    });
 
     res.status(201).json(message);
   } catch (error) {

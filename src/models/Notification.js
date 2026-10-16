@@ -17,12 +17,14 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['booking_created', 'booking_status', 'review_received', 'general'],
+        enum: ['booking_created', 'booking_status', 'review_received', 'message', 'general'],
         default: 'general'
     },
     data: {
         bookingId: { type: String, default: '' },
-        status: { type: String, default: '' }
+        status: { type: String, default: '' },
+        conversationId: { type: String, default: '' },
+        messageId: { type: String, default: '' },
     },
     isRead: {
         type: Boolean,
