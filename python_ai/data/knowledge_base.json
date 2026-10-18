@@ -1,0 +1,90 @@
+{
+  "fallback": "Please ask a question about the LocalServe app, its services, providers, bookings, payments, messages, or invoices.",
+  "fallback_roman_urdu": "Meherbani karke LocalServe app, services, providers, booking, payment, messages ya invoice ke mutaliq sawal poochein.",
+  "entries": [
+    {
+      "intent": "greeting",
+      "questions": ["hello", "hi", "hey LocalServe", "assalam o alaikum", "salam assistant", "how are you"],
+      "answer": "Hello! I can answer questions about LocalServe services, providers, bookings, payments, messages, and invoices.",
+      "answer_roman_urdu": "Salam! Main LocalServe services, providers, bookings, payments, messages aur invoices ke bare mein sawalon ka jawab de sakta hoon."
+    },
+    {
+      "intent": "app_info",
+      "questions": ["what is LocalServe", "what does this app do", "tell me about the app", "LocalServe kya hai", "is app ka kya maqsad hai", "what can I do in LocalServe"],
+      "answer": "LocalServe is a demo app for finding local service providers and managing service bookings, messages, and invoices.",
+      "answer_roman_urdu": "LocalServe aik demo app hai jahan aap local service providers dhoond sakte hain aur bookings, messages aur invoices dekh sakte hain."
+    },
+    {
+      "intent": "find_provider",
+      "questions": ["how do I find a service provider", "where can I find a plumber", "show me local experts", "mujhe plumber chahiye", "electrician kahan milega", "services kaise dhoondun"],
+      "answer": "Open Services, choose a category, and browse the available local providers. Categories include Plumber, Electrician, AC Repair, Carpenter, Painter, and Cleaner.",
+      "answer_roman_urdu": "Services kholein, category chunein aur available local providers dekhein. Categories mein Plumber, Electrician, AC Repair, Carpenter, Painter aur Cleaner shamil hain."
+    },
+    {
+      "intent": "find_provider",
+      "questions": ["what service categories are available", "which services can I book", "does the app have cleaners", "app mein konsi services hain", "AC repair wala mil sakta hai", "do you have a carpenter"],
+      "answer": "The demo includes Plumber, Electrician, AC Repair, Carpenter, Painter, and Cleaner categories. Open Services to browse providers.",
+      "answer_roman_urdu": "Demo mein Plumber, Electrician, AC Repair, Carpenter, Painter aur Cleaner categories hain. Providers dekhne ke liye Services kholein."
+    },
+    {
+      "intent": "book_service",
+      "questions": ["how do I book a service", "how can I schedule a provider", "book a plumber for tomorrow", "mujhe booking kaise karni hai", "service book karne ka tareeqa", "provider ko kaam ke liye kaise bulaun"],
+      "answer": "Open Services, choose a category and provider, tap Book Now, then select a date, time, and service address and confirm the booking.",
+      "answer_roman_urdu": "Services kholein, category aur provider chunein, Book Now dabayein, phir date, time aur service address select karke booking confirm karein."
+    },
+    {
+      "intent": "cancel_booking",
+      "questions": ["how do I cancel a booking", "cancel my service appointment", "I no longer need the booking", "booking cancel kaise karun", "meri service cancel karni hai", "appointment wapas leni hai"],
+      "answer": "Open Bookings, select the booking, and use its cancel option. Whether it can be cancelled may depend on its current status.",
+      "answer_roman_urdu": "Bookings kholein, apni booking select karein aur cancel option use karein. Cancel hona booking ke current status par depend kar sakta hai."
+    },
+    {
+      "intent": "payment",
+      "questions": ["how does payment work", "can I pay by card", "do I pay before or after service", "payment kaise karni hoti hai", "cash dena hai ya card", "online payment available hai"],
+      "answer": "LocalServe demo payments are cash after the service. In-app card or online payment is not available.",
+      "answer_roman_urdu": "LocalServe demo mein service ke baad cash payment hoti hai. App ke andar card ya online payment available nahi hai."
+    },
+    {
+      "intent": "payment",
+      "questions": ["where do I see the service price", "how much will a provider charge", "is the service free", "provider ki price kahan dekhoon", "service ke charges kya hain", "kitne paise lagenge"],
+      "answer": "Open a provider's profile or service listing to review the price shown there. Confirm the final price with the provider before work begins.",
+      "answer_roman_urdu": "Provider ki profile ya service listing mein dikhayi gayi price dekhein. Kaam shuru hone se pehle final price provider se confirm karein."
+    },
+    {
+      "intent": "messaging",
+      "questions": ["how do I message a provider", "where are my chats", "contact the electrician", "provider ko message kaise bhejun", "mujhe provider se baat karni hai", "messages kahan milenge"],
+      "answer": "Open Messages to view your chats, or open a provider's profile and tap Message to start a conversation.",
+      "answer_roman_urdu": "Apni chats dekhne ke liye Messages kholein, ya provider ki profile khol kar Message dabayein."
+    },
+    {
+      "intent": "invoice",
+      "questions": ["how do I download an invoice", "where is my receipt", "get a receipt for my booking", "invoice kahan se milega", "receipt download kaise karun", "mujhe bill chahiye"],
+      "answer": "Open the completed booking and choose Download Invoice to get its receipt.",
+      "answer_roman_urdu": "Mukammal booking kholein aur receipt hasil karne ke liye Download Invoice chunein."
+    },
+    {
+      "intent": "availability",
+      "questions": ["how can a provider set availability", "where is the availability calendar", "change my open time slots", "provider apna time kaise set kare", "availability calendar kahan hai", "available hours update karne hain"],
+      "answer": "Providers can manage their open time slots from the Availability calendar in the app.",
+      "answer_roman_urdu": "Providers app ke Availability calendar se apne khali time slots manage kar sakte hain."
+    },
+    {
+      "intent": "registration",
+      "questions": ["how do I register", "create a customer account", "sign up as a provider", "account kaise banaun", "provider account banana hai", "registration kaise karni hai"],
+      "answer": "Choose Customer or Provider during registration, verify your email, and complete your profile. Providers also add their category, price, and service area.",
+      "answer_roman_urdu": "Registration mein Customer ya Provider chunein, email verify karein aur profile mukammal karein. Providers apni category, price aur service area bhi add karte hain."
+    },
+    {
+      "intent": "booking_status",
+      "questions": ["how do I check my booking status", "is my service request confirmed", "where are my appointments", "booking ka status kahan dekhun", "meri request confirm hui", "meri bookings kahan hain"],
+      "answer": "Open Bookings to check the latest status and details of your service request.",
+      "answer_roman_urdu": "Apni service request ka latest status aur tafseel dekhne ke liye Bookings kholein."
+    },
+    {
+      "intent": "app_info",
+      "questions": ["can the assistant book a service for me", "can you change my booking", "can you see my account", "kya assistant meri booking kar sakta hai", "kya tum meri booking dekh sakte ho", "can you access live provider information"],
+      "answer": "The assistant only answers questions using LocalServe help information. It cannot access your account, see live provider or booking data, or perform actions.",
+      "answer_roman_urdu": "Assistant sirf LocalServe ki maloomat se sawalon ke jawab deta hai. Yeh aapka account ya live provider/booking data nahi dekh sakta aur koi action nahi kar sakta."
+    }
+  ]
+}

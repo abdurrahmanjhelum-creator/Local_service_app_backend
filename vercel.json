@@ -4,9 +4,17 @@
     {
       "src": "api/index.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/ai/assistant.py",
+      "use": "@vercel/python"
     }
   ],
   "routes": [
+    {
+      "src": "/api/ai/faq/?",
+      "dest": "api/ai/assistant.py"
+    },
     {
       "src": "/(.*)",
       "dest": "api/index.js"
