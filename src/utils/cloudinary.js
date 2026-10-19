@@ -39,18 +39,22 @@ const diskStorage = multer.diskStorage({
 });
 
 const storage = isServerless ? multer.memoryStorage() : diskStorage;
-const imageMimeTypes = {
-    'image/jpeg': ['.jpg', '.jpeg'],
-    'image/png': ['.png'],
-    'image/webp': ['.webp'],
-    'image/gif': ['.gif']
-};
+const acceptedImageMimeTypes = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/pjpeg',
+    'image/png',
+    'image/webp',
+    'image/gif'
+]);
+const acceptedImageExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, callback) => {
-        const extensions = imageMimeTypes[file.mimetype];
-        if (extensions?.includes(path.extname(file.originalname).toLowerCase())) {
+        const mimeType = file.mimetype.toLowerCase().split(';', 1)[0].trim();
+        const extension = path.extname(file.originalname).toLowerCase();
+        if (acceptedImageMimeTypes.has(mimeType) || acceptedImageExtensions.has(extension)) {
             return callback(null, true);
         }
         callback(new Error('Only JPEG, PNG, WebP, and GIF images are allowed.'));

@@ -25,6 +25,26 @@ test('production image uploads use memory storage without relying on Vercel env 
 
   try {
     const { upload, uploadImage } = require(cloudinaryPath);
+    const checkFileType = (file) => new Promise((resolve, reject) => {
+      upload.fileFilter({}, file, (error, accepted) => {
+        if (error) return reject(error);
+        resolve(accepted);
+      });
+    });
+
+    assert.equal(await checkFileType({
+      originalname: 'phone-photo.jpg',
+      mimetype: 'application/octet-stream',
+    }), true);
+    assert.equal(await checkFileType({
+      originalname: 'phone-photo.jpeg',
+      mimetype: 'image/jpeg; charset=binary',
+    }), true);
+    await assert.rejects(checkFileType({
+      originalname: 'vector-image.svg',
+      mimetype: 'image/svg+xml',
+    }), /Only JPEG, PNG, WebP, and GIF images are allowed/);
+
     const content = Buffer.from('image bytes');
     const storedFile = await new Promise((resolve, reject) => {
       upload.storage._handleFile(
