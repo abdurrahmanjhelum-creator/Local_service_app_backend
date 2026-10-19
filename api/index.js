@@ -32,6 +32,7 @@ const chatRoutes = require('../src/routes/chatRoutes');
 const locationRoutes = require('../src/routes/locationRoutes');
 const availabilityRoutes = require('../src/routes/availabilityRoutes');
 const invoiceRoutes = require('../src/routes/invoiceRoutes');
+const aiRoutes = require('../src/routes/aiRoutes');
 
 const app = express();
 
@@ -91,6 +92,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/location', locationRoutes);
 app.use('/api/availability', availabilityRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/invoices', invoiceRoutes);
 
 app.use(notFound);

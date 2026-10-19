@@ -42,10 +42,14 @@ For local development, check `GET /health` and try `POST /chat` with
 stored answer and the classifier/retrieval model name. No Ollama process or
 model download is needed.
 
+This lightweight service does not provide recommendations or sentiment
+analysis. The Node.js AI integration uses the advanced service described in
+`README_ADVANCED_AI.md` on port `8000`; do not point `PYTHON_AI_URL` at this
+port-8001 service if you need those endpoints.
+
 Deployed Flutter builds call the Vercel endpoint `POST /api/ai/faq`; the Python
-function entrypoint is `../api/ai/assistant.py`. Configure and deploy the
-backend to Vercel for the Flutter app to use the hosted assistant. The Python
-development server above is only needed to test `/chat` locally.
+function entrypoint is `../api/ai/assistant.py`. Other AI endpoints are served
+by the Node.js backend and must be deployed there as well.
 
 ## Add LocalServe knowledge
 
