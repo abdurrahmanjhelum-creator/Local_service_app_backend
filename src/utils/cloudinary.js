@@ -1,7 +1,9 @@
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
+const fs = require('fs');
+const fsPromises = fs.promises;
+const { randomUUID } = require('crypto');
 require('dotenv').config();
 
 const hasCloudinary =
@@ -18,33 +20,44 @@ if (hasCloudinary) {
     });
 }
 
-// Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../../uploads');
-fs.mkdir(uploadsDir, { recursive: true }).catch(() => {});
+const isServerless =
+    Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) ||
+    process.env.NODE_ENV === 'production';
 
-const storage = multer.diskStorage({
+if (!isServerless) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const diskStorage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+        cb(null, `${file.fieldname}-${randomUUID()}${path.extname(file.originalname).toLowerCase()}`);
     }
 });
 
+const storage = isServerless ? multer.memoryStorage() : diskStorage;
+const imageMimeTypes = {
+    'image/jpeg': ['.jpg', '.jpeg'],
+    'image/png': ['.png'],
+    'image/webp': ['.webp'],
+    'image/gif': ['.gif']
+};
 const upload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, callback) => {
-        if (file.mimetype.startsWith('image/')) {
+        const extensions = imageMimeTypes[file.mimetype];
+        if (extensions?.includes(path.extname(file.originalname).toLowerCase())) {
             return callback(null, true);
         }
-        callback(new Error('Only image files are allowed (received: ' + file.mimetype + ')'));
+        callback(new Error('Only JPEG, PNG, WebP, and GIF images are allowed.'));
     }
 });
 
-// Upload to Cloudinary if configured, otherwise return local path
+// Upload local development files to Cloudinary when configured.
 const uploadToCloudinary = async (filePath, folder = 'local_services_app/profiles') => {
     if (!hasCloudinary) {
         return null;
@@ -58,14 +71,27 @@ const uploadToCloudinary = async (filePath, folder = 'local_services_app/profile
         });
         
         // Delete local file after successful upload
-        await fs.unlink(filePath);
+        await fsPromises.unlink(filePath);
         
         return result.secure_url;
     } catch (error) {
         console.error('Cloudinary upload error:', error);
-        return null;
+        throw error;
     }
 };
+
+const uploadBufferToCloudinary = (buffer, folder = 'local_services_app/profiles') =>
+    new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream({
+            folder,
+            transformation: [{ width: 800, height: 800, crop: 'limit' }],
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp', 'gif']
+        }, (error, result) => {
+            if (error) return reject(error);
+            if (!result?.secure_url) return reject(new Error('Cloudinary returned no image URL'));
+            resolve(result.secure_url);
+        }).end(buffer);
+    });
 
 const uploadImage = async (req, res, next) => {
     upload.single('image')(req, res, async (err) => {
@@ -78,13 +104,19 @@ const uploadImage = async (req, res, next) => {
         }
 
         try {
-            if (hasCloudinary) {
-                const cloudinaryUrl = await uploadToCloudinary(req.file.path);
-                if (cloudinaryUrl) {
-                    req.file.cloudinaryUrl = cloudinaryUrl;
-                    req.file.path = cloudinaryUrl;
-                }
+            if (!hasCloudinary && (process.env.NODE_ENV === 'production' || process.env.VERCEL)) {
+                if (req.file.path) await fsPromises.unlink(req.file.path);
+                return res.status(503).json({
+                    message: 'Image uploads are not configured on this server.'
+                });
             }
+            if (!hasCloudinary) return next();
+
+            const cloudinaryUrl = req.file.buffer
+                ? await uploadBufferToCloudinary(req.file.buffer)
+                : await uploadToCloudinary(req.file.path);
+            req.file.cloudinaryUrl = cloudinaryUrl;
+            req.file.path = cloudinaryUrl;
             next();
         } catch (error) {
             return res.status(500).json({ message: 'Image processing failed: ' + error.message });
