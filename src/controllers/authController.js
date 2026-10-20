@@ -4,6 +4,7 @@ const OTP = require('../models/OTP');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
 const bcrypt = require('bcryptjs');
+const { randomInt } = require('crypto');
 const logger = require('../utils/logger');
 
 const formatUser = (user, token) => {
@@ -35,7 +36,7 @@ const formatUser = (user, token) => {
 // 1. Send OTP to Email (Initial stage email check)
 const sendOtpBeforeRegister = async (req, res) => {
     try {
-        const { email } = req.body || {};
+        const email = String(req.body?.email || '').trim().toLowerCase();
 
         if (!email) {
             return res.status(400).json({ message: 'Email address is required.' });
@@ -48,15 +49,17 @@ const sendOtpBeforeRegister = async (req, res) => {
         }
 
         // Generate 6-Digit Random OTP
-        const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        const generatedOtp = randomInt(100000, 1000000).toString();
+        const hashedOtp = await bcrypt.hash(generatedOtp, 10);
 
         // Delete any existing OTP for this email
-        await OTP.deleteMany({ email });
+        await OTP.deleteMany({ email, purpose: 'registration' });
 
         // Save OTP to Collection
         await OTP.create({
             email,
-            otp: generatedOtp
+            otp: hashedOtp,
+            purpose: 'registration'
         });
 
         // Send Email
@@ -79,21 +82,30 @@ const sendOtpBeforeRegister = async (req, res) => {
 // 2. Verify OTP (Validate entered code)
 const verifyOtpBeforeRegister = async (req, res) => {
     try {
-        const { email, otp } = req.body || {};
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const otp = String(req.body?.otp || '').trim();
 
         if (!email || !otp) {
             return res.status(400).json({ message: 'Email and OTP are required.' });
         }
 
         // Find recent OTP for this email
-        const otpRecord = await OTP.findOne({ email, otp });
+        const otpRecord = await OTP.findOne({ email, purpose: 'registration' }).sort({ createdAt: -1 });
 
-        if (!otpRecord) {
+        if (!otpRecord || !(await bcrypt.compare(otp, otpRecord.otp))) {
+            if (otpRecord) {
+                otpRecord.attempts += 1;
+                if (otpRecord.attempts >= 5) {
+                    await OTP.deleteOne({ _id: otpRecord._id });
+                } else {
+                    await otpRecord.save();
+                }
+            }
             return res.status(400).json({ message: 'Invalid or expired OTP code.' });
         }
 
-        // Delete temporary OTP record
-        await OTP.deleteOne({ _id: otpRecord._id });
+        otpRecord.isVerified = true;
+        await otpRecord.save();
 
         res.status(200).json({
             success: true,
@@ -107,6 +119,10 @@ const verifyOtpBeforeRegister = async (req, res) => {
 // 3. Register Complete (Save user details after email verification)
 const registerComplete = async (req, res) => {
     try {
+        if (!process.env.JWT_SECRET) {
+            return res.status(503).json({ message: 'Authentication is temporarily unavailable.' });
+        }
+
         const {
             name,
             email,
@@ -122,12 +138,31 @@ const registerComplete = async (req, res) => {
             longitude
         } = req.body || {};
 
+        const normalizedEmail = String(email || '').trim().toLowerCase();
         if (!name || !email || !password || !phone) {
             return res.status(400).json({ message: 'All required fields (Name, Email, Password, Phone) must be provided.' });
         }
 
+        if (!['customer', 'provider'].includes(role || 'customer')) {
+            return res.status(400).json({ message: 'Role must be customer or provider.' });
+        }
+        if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
+            return res.status(400).json({
+                message: 'Password must be at least 8 characters and include uppercase, lowercase, and a number.'
+            });
+        }
+
+        const verifiedEmail = await OTP.findOne({
+            email: normalizedEmail,
+            purpose: 'registration',
+            isVerified: true
+        }).sort({ createdAt: -1 });
+        if (!verifiedEmail) {
+            return res.status(400).json({ message: 'Verify this email address before completing registration.' });
+        }
+
         // Double registration check
-        const userExists = await User.findOne({ email });
+        const userExists = await User.findOne({ email: normalizedEmail });
         if (userExists) {
             return res.status(400).json({ message: 'This email is already registered.' });
         }
@@ -141,7 +176,7 @@ const registerComplete = async (req, res) => {
         // Create account with isVerified: true since OTP was verified beforehand
         const user = await User.create({
             name,
-            email,
+            email: normalizedEmail,
             password: passwordhash,
             role: role || 'customer',
             phone,
@@ -157,6 +192,7 @@ const registerComplete = async (req, res) => {
         });
 
         if (user) {
+            await OTP.deleteMany({ email: normalizedEmail, purpose: 'registration' });
             res.status(201).json(formatUser(user, generateToken(user._id)));
         } else {
             res.status(400).json({ message: 'Account creation failed.' });
@@ -173,7 +209,7 @@ const registerComplete = async (req, res) => {
 // 1. Forgot Password - Send OTP
 const forgotPassword = async (req, res) => {
     try {
-        const { email } = req.body || {};
+        const email = String(req.body?.email || '').trim().toLowerCase();
 
         if (!email) {
             return res.status(400).json({ message: 'Email address is required.' });
@@ -186,7 +222,7 @@ const forgotPassword = async (req, res) => {
         }
 
         // Generate 6-Digit Random OTP
-        const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        const generatedOtp = randomInt(100000, 1000000).toString();
 
         // Hash OTP for security
         const hashedOtp = await bcrypt.hash(generatedOtp, 10);
@@ -197,7 +233,8 @@ const forgotPassword = async (req, res) => {
         // Save hashed OTP
         await OTP.create({
             email,
-            otp: hashedOtp
+            otp: hashedOtp,
+            purpose: 'password_reset'
         });
 
         // Send Email
@@ -220,7 +257,8 @@ const forgotPassword = async (req, res) => {
 // 2. Reset Password
 const resetPassword = async (req, res) => {
     try {
-        const { email, otp, newPassword } = req.body || {};
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const { otp, newPassword } = req.body || {};
 
         if (!email || !otp || !newPassword) {
             return res.status(400).json({ message: 'Email, OTP, and New Password are required.' });
@@ -242,7 +280,7 @@ const resetPassword = async (req, res) => {
         }
 
         // Match OTP token (compare with hashed OTP)
-        const otpRecords = await OTP.find({ email }).sort({ createdAt: -1 }).limit(1);
+        const otpRecords = await OTP.find({ email, purpose: 'password_reset' }).sort({ createdAt: -1 }).limit(1);
         const otpRecord = otpRecords[0];
         
         if (!otpRecord) {
@@ -252,6 +290,12 @@ const resetPassword = async (req, res) => {
         // Verify OTP hash
         const isOtpValid = await bcrypt.compare(otp, otpRecord.otp);
         if (!isOtpValid) {
+            otpRecord.attempts += 1;
+            if (otpRecord.attempts >= 5) {
+                await OTP.deleteOne({ _id: otpRecord._id });
+            } else {
+                await otpRecord.save();
+            }
             return res.status(400).json({ message: 'Invalid or expired OTP code.' });
         }
 
@@ -280,7 +324,12 @@ const resetPassword = async (req, res) => {
 // 4. Authenticate user & get token (Login)
 const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body || {};
+        if (!process.env.JWT_SECRET) {
+            return res.status(503).json({ message: 'Authentication is temporarily unavailable.' });
+        }
+
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const { password } = req.body || {};
 
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required.' });
